@@ -12,6 +12,8 @@ $mensagem = '';
 $acesso = mysqli_query($conn, "SELECT c.*, mc.papel FROM cofres c LEFT JOIN membros_cofre mc ON mc.id_cofre=c.id AND mc.id_usuario=$usuarioId WHERE c.id=$cofreId");
 $cofre = $acesso ? mysqli_fetch_assoc($acesso) : null;
 
+$podeGerenciar = $cofre && (($cofre['id_dono'] == $usuarioId) || ($cofre['papel'] === 'OWNER'));
+
 if (!$cofre || (!$cofre['papel'] && $cofre['id_dono'] != $usuarioId)) {
     echo '<div class="alerta">Acesso negado.</div>';
     return;
@@ -19,37 +21,45 @@ if (!$cofre || (!$cofre['papel'] && $cofre['id_dono'] != $usuarioId)) {
 
 // Adicionar membro
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['novo_membro'])) {
-    $email = mysqli_real_escape_string($conn, $_POST['email']);
-    $papel = mysqli_real_escape_string($conn, $_POST['papel']);
-
-    $u = mysqli_query($conn, "SELECT id FROM usuarios WHERE email='$email' LIMIT 1");
-    if ($u && mysqli_num_rows($u) === 1) {
-        $dados = mysqli_fetch_assoc($u);
-        $novoId = $dados['id'];
-        // Evita duplicidade
-        $ja = mysqli_query($conn, "SELECT id FROM membros_cofre WHERE id_cofre=$cofreId AND id_usuario=$novoId LIMIT 1");
-        if ($ja && mysqli_num_rows($ja) > 0) {
-            $mensagem = 'Usuário já é membro deste cofre.';
-        } else {
-            mysqli_query($conn, "INSERT INTO membros_cofre (id_cofre, id_usuario, papel) VALUES ($cofreId, $novoId, '$papel')");
-            $mensagem = 'Membro adicionado.';
-        }
+    if (!$podeGerenciar) {
+        $mensagem = 'Somente owners podem adicionar membros.';
     } else {
-        $mensagem = 'Usuário não encontrado.';
+        $email = mysqli_real_escape_string($conn, $_POST['email']);
+        $papel = mysqli_real_escape_string($conn, $_POST['papel']);
+
+        $u = mysqli_query($conn, "SELECT id FROM usuarios WHERE email='$email' LIMIT 1");
+        if ($u && mysqli_num_rows($u) === 1) {
+            $dados = mysqli_fetch_assoc($u);
+            $novoId = $dados['id'];
+            // Evita duplicidade
+            $ja = mysqli_query($conn, "SELECT id FROM membros_cofre WHERE id_cofre=$cofreId AND id_usuario=$novoId LIMIT 1");
+            if ($ja && mysqli_num_rows($ja) > 0) {
+                $mensagem = 'Usuário já é membro deste cofre.';
+            } else {
+                mysqli_query($conn, "INSERT INTO membros_cofre (id_cofre, id_usuario, papel) VALUES ($cofreId, $novoId, '$papel')");
+                $mensagem = 'Membro adicionado.';
+            }
+        } else {
+            $mensagem = 'Usuário não encontrado.';
+        }
     }
 }
 
 // Remover membro
 if (isset($_GET['remover'])) {
-    $idRemover = (int) $_GET['remover'];
-
-    // Conta owners restantes
-    $owners = mysqli_query($conn, "SELECT id FROM membros_cofre WHERE id_cofre=$cofreId AND papel='OWNER'");
-    if ($owners && mysqli_num_rows($owners) <= 1) {
-        $mensagem = 'Não é possível remover o último OWNER.';
+    if (!$podeGerenciar) {
+        $mensagem = 'Somente owners podem remover membros.';
     } else {
-        mysqli_query($conn, "DELETE FROM membros_cofre WHERE id=$idRemover AND id_cofre=$cofreId");
-        $mensagem = 'Membro removido.';
+        $idRemover = (int) $_GET['remover'];
+
+        // Conta owners restantes
+        $owners = mysqli_query($conn, "SELECT id FROM membros_cofre WHERE id_cofre=$cofreId AND papel='OWNER'");
+        if ($owners && mysqli_num_rows($owners) <= 1) {
+            $mensagem = 'Não é possível remover o último OWNER.';
+        } else {
+            mysqli_query($conn, "DELETE FROM membros_cofre WHERE id=$idRemover AND id_cofre=$cofreId");
+            $mensagem = 'Membro removido.';
+        }
     }
 }
 
@@ -61,6 +71,7 @@ $membros = mysqli_query($conn, "SELECT mc.id, u.nome, u.email, mc.papel FROM mem
 ?>
 <h2>Membros do Cofre: <?php echo htmlspecialchars($cofre['nome']); ?></h2>
 <?php if ($mensagem): ?><div class="alerta"><?php echo $mensagem; ?></div><?php endif; ?>
+<?php if (!$podeGerenciar): ?><div class="info">Você está em modo somente leitura. Apenas owners podem gerenciar membros.</div><?php endif; ?>
 
 <table>
     <tr>
@@ -76,17 +87,20 @@ $membros = mysqli_query($conn, "SELECT mc.id, u.nome, u.email, mc.papel FROM mem
                 <td><?php echo htmlspecialchars($m['email']); ?></td>
                 <td><?php echo $m['papel']; ?></td>
                 <td>
-                    <?php if ($m['papel'] !== 'OWNER' || $ownerCount > 1): ?>
+                    <?php if ($podeGerenciar && ($m['papel'] !== 'OWNER' || $ownerCount > 1)): ?>
                         <a class="btn perigo" href="index.php?page=cofre_membros&id=<?php echo $cofreId; ?>&remover=<?php echo $m['id']; ?>" onclick="return confirm('Remover membro?');">Remover</a>
+                    <?php else: ?>
+                        <span class="empty">-</span>
                     <?php endif; ?>
                 </td>
             </tr>
         <?php endwhile; ?>
     <?php else: ?>
-        <tr><td colspan="4">Nenhum membro.</td></tr>
+        <tr><td colspan="4" class="empty">Nenhum membro.</td></tr>
     <?php endif; ?>
 </table>
 
+<?php if ($podeGerenciar): ?>
 <div class="box">
     <h3>Adicionar membro</h3>
     <form method="post">
@@ -102,3 +116,4 @@ $membros = mysqli_query($conn, "SELECT mc.id, u.nome, u.email, mc.papel FROM mem
         <button type="submit">Adicionar</button>
     </form>
 </div>
+<?php endif; ?>

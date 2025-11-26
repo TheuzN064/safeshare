@@ -38,6 +38,7 @@ $lista = mysqli_query($conn, "SELECT * FROM etiquetas ORDER BY nome");
 
 <div class="box">
     <h3>Nova etiqueta</h3>
+    <p class="info">Use etiquetas para organizar rapidamente as senhas por tema ou prioridade.</p>
     <form method="post">
         <input type="hidden" name="nova_etiqueta" value="1">
         <label>Nome:</label>
@@ -61,6 +62,6 @@ $lista = mysqli_query($conn, "SELECT * FROM etiquetas ORDER BY nome");
             </tr>
         <?php endwhile; ?>
     <?php else: ?>
-        <tr><td colspan="2">Nenhuma etiqueta cadastrada.</td></tr>
+        <tr><td colspan="2" class="empty">Nenhuma etiqueta cadastrada.</td></tr>
     <?php endif; ?>
 </table>

@@ -58,6 +58,7 @@ $cofres = mysqli_query($conn, $sql);
 <?php if ($mensagem): ?><div class="alerta"><?php echo $mensagem; ?></div><?php endif; ?>
 <div class="box">
     <h3>Criar novo cofre</h3>
+    <p class="info">Defina um nome, uma breve descrição e comece a adicionar senhas ou membros.</p>
     <form method="post">
         <input type="hidden" name="novo_cofre" value="1">
         <label>Nome:</label>
@@ -91,6 +92,6 @@ $cofres = mysqli_query($conn, $sql);
             </tr>
         <?php endwhile; ?>
     <?php else: ?>
-        <tr><td colspan="4">Nenhum cofre encontrado.</td></tr>
+        <tr><td colspan="4" class="empty">Nenhum cofre encontrado.</td></tr>
     <?php endif; ?>
 </table>
