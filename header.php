@@ -11,17 +11,23 @@ if (session_status() === PHP_SESSION_NONE) {
     <link rel="stylesheet" href="public/style.css">
 </head>
 <body>
-<div class="topo">
-    <h1>SafeShare - Gerenciador de Cofres Compartilhados</h1>
-    <nav>
+<header class="topo">
+    <div class="brand">
+        <span class="logo">🔐</span>
+        <div>
+            <p class="logo-sub">SafeShare</p>
+            <p class="logo-title">Cofres Compartilhados</p>
+        </div>
+    </div>
+    <nav class="menu">
         <?php if (isset($_SESSION['usuario_id'])): ?>
             <a href="index.php?page=cofres">Cofres</a>
             <a href="index.php?page=etiquetas">Etiquetas</a>
-            <a href="index.php?page=logout">Sair</a>
+            <a class="sair" href="index.php?page=logout">Sair</a>
         <?php else: ?>
             <a href="index.php?page=login">Login</a>
-            <a href="index.php?page=register">Registrar</a>
+            <a class="destaque" href="index.php?page=register">Registrar</a>
         <?php endif; ?>
     </nav>
-</div>
-<div class="container">
+</header>
+<main class="container">

@@ -12,6 +12,8 @@ $mensagem = '';
 $acesso = mysqli_query($conn, "SELECT c.nome, c.id_dono, mc.papel FROM cofres c LEFT JOIN membros_cofre mc ON mc.id_cofre=c.id AND mc.id_usuario=$usuarioId WHERE c.id=$cofreId");
 $cofre = $acesso ? mysqli_fetch_assoc($acesso) : null;
 
+$podeEditar = $cofre && (($cofre['id_dono'] == $usuarioId) || ($cofre['papel'] === 'OWNER') || ($cofre['papel'] === 'EDITOR'));
+
 if (!$cofre || (!$cofre['papel'] && $cofre['id_dono'] != $usuarioId)) {
     echo '<div class="alerta">Acesso negado.</div>';
     return;
@@ -19,32 +21,40 @@ if (!$cofre || (!$cofre['papel'] && $cofre['id_dono'] != $usuarioId)) {
 
 // Adicionar nova senha
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nova_senha'])) {
-    $rotulo = mysqli_real_escape_string($conn, $_POST['rotulo']);
-    $usuarioLogin = mysqli_real_escape_string($conn, $_POST['usuario_login']);
-    $senhaValor = mysqli_real_escape_string($conn, $_POST['senha_valor']);
-    $notas = mysqli_real_escape_string($conn, $_POST['notas']);
-
-    $sql = "INSERT INTO senhas (id_cofre, rotulo, usuario_login, senha_valor, notas) VALUES ($cofreId, '$rotulo', '$usuarioLogin', '$senhaValor', '$notas')";
-    if (mysqli_query($conn, $sql)) {
-        $senhaId = mysqli_insert_id($conn);
-        if (isset($_POST['etiquetas']) && is_array($_POST['etiquetas'])) {
-            foreach ($_POST['etiquetas'] as $et) {
-                $etId = (int) $et;
-                mysqli_query($conn, "INSERT INTO senha_etiqueta (id_senha, id_etiqueta) VALUES ($senhaId, $etId)");
-            }
-        }
-        $mensagem = 'Senha adicionada.';
+    if (!$podeEditar) {
+        $mensagem = 'Somente owners ou editores podem adicionar senhas.';
     } else {
-        $mensagem = 'Erro ao adicionar senha: ' . mysqli_error($conn);
+        $rotulo = mysqli_real_escape_string($conn, $_POST['rotulo']);
+        $usuarioLogin = mysqli_real_escape_string($conn, $_POST['usuario_login']);
+        $senhaValor = mysqli_real_escape_string($conn, $_POST['senha_valor']);
+        $notas = mysqli_real_escape_string($conn, $_POST['notas']);
+
+        $sql = "INSERT INTO senhas (id_cofre, rotulo, usuario_login, senha_valor, notas) VALUES ($cofreId, '$rotulo', '$usuarioLogin', '$senhaValor', '$notas')";
+        if (mysqli_query($conn, $sql)) {
+            $senhaId = mysqli_insert_id($conn);
+            if (isset($_POST['etiquetas']) && is_array($_POST['etiquetas'])) {
+                foreach ($_POST['etiquetas'] as $et) {
+                    $etId = (int) $et;
+                    mysqli_query($conn, "INSERT INTO senha_etiqueta (id_senha, id_etiqueta) VALUES ($senhaId, $etId)");
+                }
+            }
+            $mensagem = 'Senha adicionada.';
+        } else {
+            $mensagem = 'Erro ao adicionar senha: ' . mysqli_error($conn);
+        }
     }
 }
 
 // Excluir senha
 if (isset($_GET['excluir_senha'])) {
-    $senhaId = (int) $_GET['excluir_senha'];
-    mysqli_query($conn, "DELETE FROM senha_etiqueta WHERE id_senha=$senhaId");
-    mysqli_query($conn, "DELETE FROM senhas WHERE id=$senhaId AND id_cofre=$cofreId");
-    $mensagem = 'Senha excluída.';
+    if (!$podeEditar) {
+        $mensagem = 'Somente owners ou editores podem excluir senhas.';
+    } else {
+        $senhaId = (int) $_GET['excluir_senha'];
+        mysqli_query($conn, "DELETE FROM senha_etiqueta WHERE id_senha=$senhaId");
+        mysqli_query($conn, "DELETE FROM senhas WHERE id=$senhaId AND id_cofre=$cofreId");
+        $mensagem = 'Senha excluída.';
+    }
 }
 
 // Busca etiquetas disponíveis
@@ -55,6 +65,7 @@ $senhas = mysqli_query($conn, "SELECT s.* FROM senhas s WHERE s.id_cofre=$cofreI
 ?>
 <h2>Senhas do Cofre: <?php echo htmlspecialchars($cofre['nome']); ?></h2>
 <?php if ($mensagem): ?><div class="alerta"><?php echo $mensagem; ?></div><?php endif; ?>
+<?php if (!$podeEditar): ?><div class="info">Você possui acesso de visualização. Apenas owners ou editores podem gerenciar senhas.</div><?php endif; ?>
 
 <table>
     <tr>
@@ -80,15 +91,20 @@ $senhas = mysqli_query($conn, "SELECT s.* FROM senhas s WHERE s.id_cofre=$cofreI
                 <td><?php echo htmlspecialchars($s['senha_valor']); ?></td>
                 <td><?php echo implode(', ', $nomesTags); ?></td>
                 <td>
-                    <a class="btn perigo" href="index.php?page=cofre_senhas&id=<?php echo $cofreId; ?>&excluir_senha=<?php echo $s['id']; ?>" onclick="return confirm('Excluir senha?');">Excluir</a>
+                    <?php if ($podeEditar): ?>
+                        <a class="btn perigo" href="index.php?page=cofre_senhas&id=<?php echo $cofreId; ?>&excluir_senha=<?php echo $s['id']; ?>" onclick="return confirm('Excluir senha?');">Excluir</a>
+                    <?php else: ?>
+                        <span class="empty">Somente leitura</span>
+                    <?php endif; ?>
                 </td>
             </tr>
         <?php endwhile; ?>
     <?php else: ?>
-        <tr><td colspan="5">Nenhuma senha cadastrada.</td></tr>
+        <tr><td colspan="5" class="empty">Nenhuma senha cadastrada.</td></tr>
     <?php endif; ?>
 </table>
 
+<?php if ($podeEditar): ?>
 <div class="box">
     <h3>Adicionar nova senha</h3>
     <form method="post">
@@ -114,3 +130,4 @@ $senhas = mysqli_query($conn, "SELECT s.* FROM senhas s WHERE s.id_cofre=$cofreI
         <button type="submit">Salvar</button>
     </form>
 </div>
+<?php endif; ?>
