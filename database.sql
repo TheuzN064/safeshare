@@ -1,50 +1,56 @@
--- Criação do banco de dados
-CREATE DATABASE IF NOT EXISTS vault_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE vault_db;
+-- Criação do banco e tabelas para o SafeShare
+CREATE DATABASE IF NOT EXISTS safeshare CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE safeshare;
 
--- Usuários do sistema
+-- Tabela de usuários
 CREATE TABLE IF NOT EXISTS usuarios (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
-    email VARCHAR(120) NOT NULL UNIQUE
+    email VARCHAR(100) NOT NULL UNIQUE,
+    senha VARCHAR(255) NOT NULL
 ) ENGINE=InnoDB;
 
-INSERT INTO usuarios (nome, email) VALUES
-('Usuário Demo', 'demo@vault.local');
-
--- Categorias para classificar logins
-CREATE TABLE IF NOT EXISTS categorias (
+-- Tabela de cofres
+CREATE TABLE IF NOT EXISTS cofres (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    nome VARCHAR(60) NOT NULL,
-    cor_hex CHAR(7) NOT NULL
+    nome VARCHAR(100) NOT NULL,
+    descricao TEXT,
+    id_dono INT NOT NULL,
+    FOREIGN KEY (id_dono) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
-INSERT INTO categorias (nome, cor_hex) VALUES
-('Social', '#1da1f2'),
-('Bancos', '#bb86fc'),
-('Trabalho', '#00c853');
-
--- Logins armazenados (senha em texto puro apenas para fins didáticos)
-CREATE TABLE IF NOT EXISTS logins (
+-- Membros de um cofre com papéis
+CREATE TABLE IF NOT EXISTS membros_cofre (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    id_cofre INT NOT NULL,
     id_usuario INT NOT NULL,
-    id_categoria INT NOT NULL,
-    site_nome VARCHAR(100) NOT NULL,
-    site_url VARCHAR(255) DEFAULT NULL,
-    login VARCHAR(120) NOT NULL,
-    senha VARCHAR(255) NOT NULL,
-    CONSTRAINT fk_logins_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE, -- FK: logins.id_usuario -> usuarios.id
-    CONSTRAINT fk_logins_categoria FOREIGN KEY (id_categoria) REFERENCES categorias(id) ON DELETE RESTRICT -- FK: logins.id_categoria -> categorias.id
+    papel ENUM('OWNER','EDITOR','VIEWER') NOT NULL,
+    FOREIGN KEY (id_cofre) REFERENCES cofres(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- Cartões de crédito/débito
-CREATE TABLE IF NOT EXISTS cartoes (
+-- Senhas associadas a um cofre
+CREATE TABLE IF NOT EXISTS senhas (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    id_usuario INT NOT NULL,
-    titular VARCHAR(120) NOT NULL,
-    numero VARCHAR(25) NOT NULL,
-    validade CHAR(5) NOT NULL,
-    cvv CHAR(4) NOT NULL,
-    bandeira VARCHAR(30) NOT NULL,
-    CONSTRAINT fk_cartoes_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE -- FK: cartoes.id_usuario -> usuarios.id
+    id_cofre INT NOT NULL,
+    rotulo VARCHAR(100) NOT NULL,
+    usuario_login VARCHAR(100) NOT NULL,
+    senha_valor VARCHAR(255) NOT NULL,
+    notas TEXT,
+    FOREIGN KEY (id_cofre) REFERENCES cofres(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Etiquetas reutilizáveis
+CREATE TABLE IF NOT EXISTS etiquetas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(50) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+-- Associação senha x etiqueta
+CREATE TABLE IF NOT EXISTS senha_etiqueta (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_senha INT NOT NULL,
+    id_etiqueta INT NOT NULL,
+    FOREIGN KEY (id_senha) REFERENCES senhas(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_etiqueta) REFERENCES etiquetas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
